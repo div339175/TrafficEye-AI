@@ -1,0 +1,24 @@
+# TrafficEye AI - Required Python Packages
+
+# Web Framework
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+
+# Computer Vision & AI
+opencv-python==4.9.0.80
+ultralytics==8.1.24
+numpy==1.26.3
+Pillow==10.2.0
+
+# Database
+SQLAlchemy==2.0.25
+
+# OCR for Number Plate Recognition
+easyocr>=1.7.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2024.1
+
+# Optional (for video processing)
+moviepy==1.0.3
