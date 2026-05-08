@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrafficEye AI - Violations</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: rgba(255,255,255,0.95) !important; backdrop-filter: blur(10px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .page-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        .nav-link-custom { color: #333; font-weight: 500; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; text-decoration: none; }
+        .nav-link-custom:hover { background: #e5e7eb; color: #2563eb; }
+        .severity-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .severity-CRITICAL { background: #fee2e2; color: #991b1b; }
+        .severity-HIGH { background: #fed7aa; color: #9a3412; }
+        .severity-MEDIUM { background: #fef3c7; color: #92400e; }
+        .severity-LOW { background: #dcfce7; color: #166534; }
+        .table th { background: #f1f5f9; position: sticky; top: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .evidence-img { width: 80px; height: 50px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: transform 0.3s; }
+        .evidence-img:hover { transform: scale(1.1); }
+        .plate-badge { background: #111827; color: #fbbf24; font-weight: 700; padding: 3px 10px; border-radius: 6px; font-family: monospace; font-size: 13px; letter-spacing: 1px; }
+        .filter-section { background: #f8fafc; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/"><i class="bi bi-camera-video-fill text-primary"></i> TrafficEye AI</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="/" class="nav-link-custom"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <a href="/violations" class="nav-link-custom" style="background:#e5e7eb;"><i class="bi bi-list-ul"></i> Violations</a>
+                <a href="/challans" class="nav-link-custom"><i class="bi bi-receipt"></i> e-Challans</a>
+                <a href="/analytics" class="nav-link-custom"><i class="bi bi-graph-up"></i> Analytics</a>
+                <button class="btn btn-sm btn-outline-danger" onclick="removeAllData()">
+                    <i class="bi bi-trash3"></i> Remove All Data
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4 mb-4">
+        <div class="page-card">
+            <h4 class="mb-3"><i class="bi bi-list-ul text-primary"></i> All Violations</h4>
+
+            <!-- Filters -->
+            <div class="filter-section">
+                <div class="row align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label small">Violation Type</label>
+                        <select class="form-select form-select-sm" id="filterType">
+                            <option value="">All Types</option>
+                            <option value="Red Light Violation">Red Light</option>
+                            <option value="No Helmet">No Helmet</option>
+                            <option value="Overspeeding">Overspeeding</option>
+                            <option value="Triple Riding">Triple Riding</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Severity</label>
+                        <select class="form-select form-select-sm" id="filterSeverity">
+                            <option value="">All</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Number Plate</label>
+                        <input type="text" class="form-control form-control-sm" id="filterPlate" placeholder="e.g. MH12AB1234">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Vehicle Color</label>
+                        <select class="form-select form-select-sm" id="filterColor">
+                            <option value="">All Colors</option>
+                            <option>Red</option><option>Blue</option><option>Green</option><option>Yellow</option>
+                            <option>White</option><option>Black</option><option>Silver</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Date</label>
+                        <input type="date" class="form-control form-control-sm" id="filterDate">
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button class="btn btn-primary btn-sm" onclick="applyFilters()"><i class="bi bi-funnel-fill"></i> Filter</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()"><i class="bi bi-x-lg"></i> Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Row -->
+            <div class="row mb-3" id="summaryRow">
+                <div class="col text-muted small">Showing <strong id="resultCount">0</strong> violations</div>
+            </div>
+
+            <!-- Violations Table -->
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Evidence</th>
+                            <th>Type</th>
+                            <th>Vehicle</th>
+                            <th>Number Plate</th>
+                            <th>Color</th>
+                            <th>Speed</th>
+                            <th>Severity</th>
+                            <th>Day/Night</th>
+                            <th>Time</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="violationsTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body p-0"><img id="modalImage" class="w-100 rounded" src=""></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allViolations = [];
+        const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+
+        function showImage(src) {
+            document.getElementById('modalImage').src = src;
+            imageModal.show();
+        }
+
+        function loadViolations() {
+            fetch('/api/violations').then(r => r.json()).then(data => {
+                allViolations = data;
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            let filtered = [...allViolations];
+            const type = document.getElementById('filterType').value;
+            const severity = document.getElementById('filterSeverity').value;
+            const plate = document.getElementById('filterPlate').value.toUpperCase();
+            const color = document.getElementById('filterColor').value;
+            const date = document.getElementById('filterDate').value;
+
+            if (type) filtered = filtered.filter(v => v.violation_type === type);
+            if (severity) filtered = filtered.filter(v => v.severity_level === severity);
+            if (plate) filtered = filtered.filter(v => (v.plate_number || '').includes(plate));
+            if (color) filtered = filtered.filter(v => v.vehicle_color === color);
+            if (date) filtered = filtered.filter(v => v.timestamp && v.timestamp.startsWith(date));
+
+            renderTable(filtered);
+            document.getElementById('resultCount').textContent = filtered.length;
+        }
+
+        function clearFilters() {
+            document.getElementById('filterType').value = '';
+            document.getElementById('filterSeverity').value = '';
+            document.getElementById('filterPlate').value = '';
+            document.getElementById('filterColor').value = '';
+            document.getElementById('filterDate').value = '';
+            applyFilters();
+        }
+
+        function renderTable(violations) {
+            const tbody = document.getElementById('violationsTable');
+            if (violations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4"><i class="bi bi-inbox" style="font-size:40px;"></i><br>No violations found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = violations.map(v => `
+                <tr>
+                    <td>${v.evidence_path ? `<img src="/static/${v.evidence_path}" class="evidence-img" onclick="showImage('/static/${v.evidence_path}')">` : '<span class="text-muted">-</span>'}</td>
+                    <td><span class="badge bg-danger">${v.violation_type}</span></td>
+                    <td><i class="bi bi-${v.vehicle_type === 'motorcycle' ? 'bicycle' : 'car-front-fill'}"></i> ${v.vehicle_type}</td>
+                    <td>${v.plate_number ? `<span class="plate-badge">${v.plate_number}</span>` : '<span class="text-muted">Not detected</span>'}</td>
+                    <td>${v.vehicle_color ? `<span class="badge" style="background:${v.vehicle_color === 'White' ? '#e5e7eb' : v.vehicle_color === 'Black' ? '#111827' : v.vehicle_color === 'Silver' ? '#9ca3af' : v.vehicle_color.toLowerCase()};color:${['White','Yellow','Silver'].includes(v.vehicle_color) ? '#111' : '#fff'}">${v.vehicle_color}</span>` : '-'}</td>
+                    <td>${v.speed_kmh > 0 ? `<strong>${v.speed_kmh.toFixed(0)}</strong> km/h` : '-'}</td>
+                    <td><span class="severity-badge severity-${v.severity_level}">${v.severity_level} (${v.severity_score})</span></td>
+                    <td><i class="bi bi-${v.day_night === 'day' ? 'sun-fill text-warning' : 'moon-stars-fill text-primary'}"></i> ${v.day_night}</td>
+                    <td class="small">${v.timestamp}</td>
+                    <td><div class="progress" style="height:6px;width:60px;"><div class="progress-bar bg-${v.confidence > 0.7 ? 'success' : v.confidence > 0.4 ? 'warning' : 'danger'}" style="width:${(v.confidence * 100).toFixed(0)}%"></div></div> ${(v.confidence * 100).toFixed(0)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        function removeAllData() {
+            if (!confirm('Remove ALL violations and challans? This cannot be undone.')) return;
+            fetch('/api/clear_data', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.message || 'All data removed');
+                    loadViolations();
+                })
+                .catch(() => alert('Failed to remove data'));
+        }
+
+        loadViolations();
+        setInterval(loadViolations, 10000);
+    </script>
+</body>
+</html>

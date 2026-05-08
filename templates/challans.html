@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrafficEye AI - e-Challans</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: rgba(255,255,255,0.95) !important; backdrop-filter: blur(10px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .page-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        .nav-link-custom { color: #333; font-weight: 500; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; text-decoration: none; }
+        .nav-link-custom:hover { background: #e5e7eb; color: #2563eb; }
+        .challan-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 15px; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .challan-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.1); transform: translateY(-3px); }
+        .challan-card::before { content: ''; position: absolute; top: 0; left: 0; width: 5px; height: 100%; }
+        .challan-pending::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
+        .challan-paid::before { background: linear-gradient(180deg, #16a34a, #15803d); }
+        .challan-number { font-family: monospace; font-size: 16px; font-weight: 700; color: #111827; letter-spacing: 1px; }
+        .fine-amount { font-size: 28px; font-weight: 800; color: #dc2626; }
+        .section-tag { background: #dbeafe; color: #1d4ed8; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .plate-badge { background: #111827; color: #fbbf24; font-weight: 700; padding: 4px 12px; border-radius: 6px; font-family: monospace; font-size: 14px; letter-spacing: 1px; }
+        .stat-mini { background: linear-gradient(135deg, #f0f9ff, #dbeafe); border-radius: 12px; padding: 15px; text-align: center; }
+        .stat-mini h3 { margin: 0; font-weight: 700; }
+        .status-pending { color: #d97706; }
+        .status-paid { color: #16a34a; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/"><i class="bi bi-camera-video-fill text-primary"></i> TrafficEye AI</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="/" class="nav-link-custom"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <a href="/violations" class="nav-link-custom"><i class="bi bi-list-ul"></i> Violations</a>
+                <a href="/challans" class="nav-link-custom" style="background:#e5e7eb;"><i class="bi bi-receipt"></i> e-Challans</a>
+                <a href="/analytics" class="nav-link-custom"><i class="bi bi-graph-up"></i> Analytics</a>
+                <button class="btn btn-sm btn-outline-danger" onclick="removeAllData()">
+                    <i class="bi bi-trash3"></i> Remove All Data
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4 mb-4">
+        <!-- Stats Row -->
+        <div class="row mb-3">
+            <div class="col-md-3"><div class="stat-mini"><div class="small text-muted">Total Challans</div><h3 class="text-primary" id="statTotal">0</h3></div></div>
+            <div class="col-md-3"><div class="stat-mini" style="background:linear-gradient(135deg,#fefce8,#fef3c7);"><div class="small text-muted">Pending</div><h3 class="status-pending" id="statPending">0</h3></div></div>
+            <div class="col-md-3"><div class="stat-mini" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);"><div class="small text-muted">Paid</div><h3 class="status-paid" id="statPaid">0</h3></div></div>
+            <div class="col-md-3"><div class="stat-mini" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);"><div class="small text-muted">Total Fines</div><h3 class="text-danger">₹<span id="statFines">0</span></h3></div></div>
+        </div>
+
+        <!-- Filter -->
+        <div class="page-card mb-3">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <h5 class="mb-0"><i class="bi bi-receipt text-primary"></i> e-Challan Management</h5>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" id="filterStatus" onchange="loadChallans()">
+                        <option value="">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control form-control-sm" id="filterPlate" placeholder="Filter by plate..." oninput="loadChallans()">
+                </div>
+                <div class="col-md-3 text-end">
+                    <span class="text-muted small"><i class="bi bi-info-circle"></i> As per Motor Vehicles Amendment Act, 2019</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Challans List -->
+        <div id="challansList"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function loadStats() {
+            fetch('/api/challan_stats').then(r => r.json()).then(data => {
+                document.getElementById('statTotal').textContent = data.total;
+                document.getElementById('statPending').textContent = data.pending;
+                document.getElementById('statPaid').textContent = data.paid;
+                document.getElementById('statFines').textContent = (data.total_fines || 0).toLocaleString('en-IN');
+            });
+        }
+
+        function loadChallans() {
+            fetch('/api/challans').then(r => r.json()).then(data => {
+                const status = document.getElementById('filterStatus').value;
+                const plate = document.getElementById('filterPlate').value.toUpperCase();
+                let filtered = data;
+                if (status) filtered = filtered.filter(c => c.status === status);
+                if (plate) filtered = filtered.filter(c => (c.plate_number || '').includes(plate));
+                renderChallans(filtered);
+            });
+        }
+
+        function renderChallans(challans) {
+            const container = document.getElementById('challansList');
+            if (challans.length === 0) {
+                container.innerHTML = '<div class="page-card text-center text-muted py-5"><i class="bi bi-receipt" style="font-size:60px;"></i><p class="mt-3">No e-Challans generated yet</p></div>';
+                return;
+            }
+            container.innerHTML = challans.map(c => `
+                <div class="challan-card challan-${c.status.toLowerCase()}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="challan-number">${c.challan_number}</div>
+                            <div class="mt-1">
+                                <span class="plate-badge">${c.plate_number || 'UNKNOWN'}</span>
+                            </div>
+                            <div class="small text-muted mt-2"><i class="bi bi-calendar3"></i> ${c.issue_date}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="small text-muted">Violation</div>
+                            <div class="fw-bold">${c.violation_type}</div>
+                            <span class="section-tag mt-1 d-inline-block">${c.violation_section}</span>
+                            <div class="small text-muted mt-1"><i class="bi bi-geo-alt"></i> ${c.state || 'Unknown State'}</div>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <div class="fine-amount">₹${c.fine_amount.toLocaleString('en-IN')}</div>
+                            ${c.late_fee > 0 ? `<div class="small text-danger">+ ₹${c.late_fee} late fee</div>` : ''}
+                            <div class="small text-muted">${c.penalty_points} penalty points</div>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <div class="small text-muted">Due Date</div>
+                            <div class="fw-bold">${c.due_date}</div>
+                            <span class="badge bg-${c.status === 'Paid' ? 'success' : 'warning'} mt-1">${c.status}</span>
+                        </div>
+                        <div class="col-md-2 text-end">
+                            ${c.status === 'Pending' ? `<button class="btn btn-success btn-sm" onclick="payChallan(${c.id})"><i class="bi bi-credit-card-fill"></i> Pay Now</button>` : `<span class="text-success"><i class="bi bi-check-circle-fill"></i> Paid</span><div class="small text-muted">${c.payment_ref}</div>`}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function payChallan(id) {
+            if (!confirm('Simulate payment for this challan?')) return;
+            fetch(`/api/challans/${id}/pay`, { method: 'POST' })
+            .then(r => r.json()).then(data => {
+                alert(data.message);
+                loadChallans();
+                loadStats();
+            });
+        }
+
+        function removeAllData() {
+            if (!confirm('Remove ALL violations and challans? This cannot be undone.')) return;
+            fetch('/api/clear_data', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.message || 'All data removed');
+                    loadChallans();
+                    loadStats();
+                })
+                .catch(() => alert('Failed to remove data'));
+        }
+
+        loadStats(); loadChallans();
+        setInterval(() => { loadStats(); loadChallans(); }, 10000);
+    </script>
+</body>
+</html>

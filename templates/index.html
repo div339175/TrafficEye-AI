@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrafficEye AI - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --warning: #ea580c; --purple: #7c3aed; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: rgba(255,255,255,0.95) !important; backdrop-filter: blur(10px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .dashboard-container { padding: 20px 0; }
+        .stat-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: transform 0.3s ease; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
+        .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 10px; }
+        .stat-number { font-size: 28px; font-weight: 700; margin: 5px 0; }
+        .stat-label { color: #6b7280; font-size: 13px; font-weight: 500; }
+        .video-feed { background: #000; border-radius: 15px; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; color: white; margin-bottom: 20px; position: relative; overflow: hidden; }
+        .video-feed::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(45deg, #667eea33, #764ba233); }
+        .control-panel { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .btn-control { padding: 10px 25px; border-radius: 10px; font-weight: 600; border: none; transition: all 0.3s ease; }
+        .btn-start { background: var(--success); color: white; }
+        .btn-start:hover { background: #15803d; color: white; }
+        .btn-stop { background: var(--danger); color: white; }
+        .btn-stop:hover { background: #b91c1c; color: white; }
+        .recent-violations { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-height: 600px; overflow-y: auto; }
+        .violation-item { border-left: 4px solid var(--danger); padding: 12px; margin-bottom: 10px; background: #f9fafb; border-radius: 8px; transition: all 0.3s ease; }
+        .violation-item:hover { background: #f3f4f6; transform: translateX(5px); }
+        .live-indicator { display: inline-block; width: 12px; height: 12px; background: var(--danger); border-radius: 50%; animation: pulse 2s infinite; margin-right: 8px; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .nav-link-custom { color: #333; font-weight: 500; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; text-decoration: none; }
+        .nav-link-custom:hover { background: #e5e7eb; color: var(--primary); }
+        .nav-link-custom i { margin-right: 4px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="bi bi-camera-video-fill text-primary"></i> TrafficEye AI
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <span class="live-indicator"></span>
+                <span class="me-2 small">System Active</span>
+                <a href="/violations" class="nav-link-custom"><i class="bi bi-list-ul"></i> Violations</a>
+                <a href="/challans" class="nav-link-custom"><i class="bi bi-receipt"></i> e-Challans</a>
+                <a href="/analytics" class="nav-link-custom"><i class="bi bi-graph-up"></i> Analytics</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid dashboard-container">
+        <!-- Row 1: Key Stats -->
+        <div class="row">
+            <div class="col-lg-2 col-md-4 col-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#dbeafe;color:var(--primary);"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                    <div class="stat-number text-primary" id="totalViolations">0</div>
+                    <div class="stat-label">Total Violations</div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#fee2e2;color:var(--danger);"><i class="bi bi-stoplights-fill"></i></div>
+                    <div class="stat-number text-danger" id="redLightViolations">0</div>
+                    <div class="stat-label">Red Light</div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#fed7aa;color:var(--warning);"><i class="bi bi-shield-x"></i></div>
+                    <div class="stat-number text-warning" id="helmetViolations">0</div>
+                    <div class="stat-label">No Helmet</div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#e0e7ff;color:var(--purple);"><i class="bi bi-speedometer2"></i></div>
+                    <div class="stat-number" style="color:var(--purple)" id="overspeedViolations">0</div>
+                    <div class="stat-label">Overspeeding</div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#fef3c7;color:#b45309;"><i class="bi bi-people-fill"></i></div>
+                    <div class="stat-number" style="color:#b45309" id="tripleViolations">0</div>
+                    <div class="stat-label">Triple Riding</div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#dcfce7;color:var(--success);"><i class="bi bi-upc-scan"></i></div>
+                    <div class="stat-number text-success" id="platesDetected">0</div>
+                    <div class="stat-label">Plates Detected</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Challan Stats -->
+        <div class="row mt-2">
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-receipt-cutoff me-3" style="font-size:36px;"></i>
+                        <div>
+                            <div class="stat-number" id="totalChallans">0</div>
+                            <div class="stat-label" style="color:#ddd;">e-Challans Generated</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-currency-rupee me-3" style="font-size:36px;"></i>
+                        <div>
+                            <div class="stat-number">₹<span id="totalFines">0</span></div>
+                            <div class="stat-label" style="color:#fef3c7;">Total Fines</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card" style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-exclamation-octagon-fill me-3" style="font-size:36px;"></i>
+                        <div>
+                            <div class="stat-number" id="criticalViolations">0</div>
+                            <div class="stat-label" style="color:#fecaca;">Critical Violations</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card" style="background:linear-gradient(135deg,#16a34a,#166534);color:white;">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar-check me-3" style="font-size:36px;"></i>
+                        <div>
+                            <div class="stat-number" id="todayViolations">0</div>
+                            <div class="stat-label" style="color:#bbf7d0;">Today's Violations</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Video + Recent Violations -->
+        <div class="row mt-3">
+            <div class="col-lg-8">
+                <!-- Upload & Live Video Area -->
+                <div class="video-feed" id="videoArea">
+                    <!-- Upload overlay (shown when no detection running) -->
+                    <div class="text-center" style="z-index:1;" id="uploadOverlay">
+                        <i class="bi bi-cloud-arrow-up" style="font-size:60px;opacity:0.7;"></i>
+                        <p class="mt-2 mb-3 fw-semibold">Upload a Traffic Video to Start Detection</p>
+                        <form id="uploadForm" enctype="multipart/form-data" class="d-inline">
+                            <label for="videoFile" class="btn btn-light btn-lg px-4" style="cursor:pointer; border-radius:12px;">
+                                <i class="bi bi-film me-2"></i> Choose Video File
+                            </label>
+                            <input type="file" id="videoFile" name="video" accept="video/*" style="display:none;">
+                        </form>
+                        <p class="mt-2 small" style="opacity:0.6;">Supports: MP4, AVI, MOV, MKV, WebM (Max 500MB)</p>
+                    </div>
+                    <!-- Live video feed (shown during detection) -->
+                    <img id="liveFeed" src="" style="width:100%;height:100%;object-fit:contain;display:none;z-index:1;position:relative;">
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="progressSection" style="display:none;" class="mt-2 mb-2">
+                    <div class="progress" style="height:25px; border-radius:12px; background:#e5e7eb;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar"
+                             role="progressbar" style="width:0%; background: linear-gradient(90deg, #667eea, #764ba2); font-weight:600;">
+                            0%
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted" id="statusMessage">Initializing...</small>
+                        <small class="text-muted" id="violationsCount">0 violations found</small>
+                    </div>
+                </div>
+
+                <div class="control-panel">
+                    <div class="row align-items-center">
+                        <div class="col-md-5">
+                            <h6 class="mb-2"><i class="bi bi-gear-fill"></i> Detection Controls</h6>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-camera"></i></span>
+                                <select class="form-select" id="videoSource">
+                                    <option value="upload" selected>Upload Video</option>
+                                    <option value="demo_video.mp4">Demo Video</option>
+                                    <option value="ai_demo_video.mp4">AI Demo Video</option>
+                                    <option value="0">Webcam</option>
+                                </select>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label for="stopLineSlider" class="form-label mb-0 small fw-semibold">
+                                        Stop Line Position
+                                    </label>
+                                    <span class="badge bg-warning text-dark" id="stopLineValue">60%</span>
+                                </div>
+                                <input type="range" class="form-range" id="stopLineSlider" min="20" max="90" step="1" value="60">
+                                <small class="text-muted">Vehicle is fined only when it actually crosses this line during red light.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-7 text-end">
+                            <button class="btn btn-control btn-start me-2" id="startBtn">
+                                <i class="bi bi-play-fill"></i> Start Detection
+                            </button>
+                            <button class="btn btn-control btn-stop me-2" id="stopBtn" disabled>
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                            <button class="btn btn-control" id="clearBtn" style="background:#6b7280;color:white;" title="Clear all data">
+                                <i class="bi bi-trash3"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="recent-violations">
+                    <h6 class="mb-3"><i class="bi bi-clock-history"></i> Recent Violations</h6>
+                    <div id="violationsList">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size:48px;"></i>
+                            <p class="mt-2">No violations detected yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let statusInterval = null;
+        let stopLineDebounce = null;
+
+        // ── Load stats & violations ──
+        function loadStats() {
+            fetch('/api/stats').then(r => r.json()).then(data => {
+                document.getElementById('totalViolations').textContent = data.total;
+                document.getElementById('redLightViolations').textContent = data.red_light;
+                document.getElementById('helmetViolations').textContent = data.no_helmet;
+                document.getElementById('overspeedViolations').textContent = data.overspeeding || 0;
+                document.getElementById('tripleViolations').textContent = data.triple_riding || 0;
+                document.getElementById('platesDetected').textContent = data.plates_detected || 0;
+                document.getElementById('totalChallans').textContent = data.total_challans || 0;
+                document.getElementById('totalFines').textContent = (data.total_fines || 0).toLocaleString('en-IN');
+                document.getElementById('criticalViolations').textContent = data.critical_violations || 0;
+                document.getElementById('todayViolations').textContent = data.today;
+            }).catch(() => {});
+        }
+
+        function loadViolations() {
+            fetch('/api/violations').then(r => r.json()).then(data => {
+                const container = document.getElementById('violationsList');
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox" style="font-size:48px;"></i><p class="mt-2">No violations yet — upload a video!</p></div>';
+                    return;
+                }
+                container.innerHTML = data.slice(0, 15).map(v => `
+                    <div class="violation-item">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <span class="badge bg-danger">${v.violation_type}</span>
+                            <span class="badge bg-${v.severity_level === 'CRITICAL' ? 'danger' : v.severity_level === 'HIGH' ? 'warning' : 'secondary'}">${v.severity_level} (${v.severity_score})</span>
+                        </div>
+                        <div class="small mt-1">
+                            <i class="bi bi-clock"></i> ${v.timestamp}<br>
+                            <i class="bi bi-upc-scan"></i> <strong>${v.plate_number}</strong>
+                            <span class="text-muted">| ${v.vehicle_type} | ${v.vehicle_color}</span>
+                            ${v.speed_kmh > 0 ? `<br><i class="bi bi-speedometer2"></i> ${v.speed_kmh.toFixed(0)} km/h` : ''}
+                            <br><i class="bi bi-currency-rupee"></i> Fine: ₹${v.violation_type === 'Overspeeding' ? '2,000' : v.violation_type === 'Using Mobile Phone' ? '5,000' : '1,000'}
+                        </div>
+                    </div>
+                `).join('');
+            }).catch(() => {});
+        }
+
+        function updateStopLineLabel(valuePercent) {
+            document.getElementById('stopLineValue').textContent = valuePercent + '%';
+        }
+
+        function loadStopLineConfig() {
+            fetch('/api/stop_line_config')
+                .then(r => r.json())
+                .then(data => {
+                    const slider = document.getElementById('stopLineSlider');
+                    const pct = Math.round((data.stop_line_ratio || 0.6) * 100);
+                    slider.value = pct;
+                    updateStopLineLabel(pct);
+                })
+                .catch(() => {});
+        }
+
+        function pushStopLineConfig(valuePercent) {
+            const ratio = valuePercent / 100;
+            fetch('/api/stop_line_config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ stop_line_ratio: ratio })
+            }).catch(() => {});
+        }
+
+        // ── Video file upload handler ──
+        document.getElementById('videoFile').addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            // Show progress section
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('statusMessage').textContent = 'Uploading video...';
+            document.getElementById('progressBar').style.width = '5%';
+            document.getElementById('progressBar').textContent = 'Uploading...';
+
+            fetch('/api/upload_video', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'started') {
+                        onDetectionStarted();
+                    } else {
+                        alert(data.message);
+                        document.getElementById('progressSection').style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    alert('Upload failed: ' + err);
+                    document.getElementById('progressSection').style.display = 'none';
+                });
+        });
+
+        // ── Start/Stop buttons ──
+        document.getElementById('startBtn').addEventListener('click', function() {
+            const source = document.getElementById('videoSource').value;
+
+            if (source === 'upload') {
+                // Trigger file upload dialog
+                document.getElementById('videoFile').click();
+                return;
+            }
+
+            // Start detection on existing file
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('statusMessage').textContent = 'Starting...';
+
+            fetch('/api/start_detection', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({source})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    onDetectionStarted();
+                } else {
+                    alert(data.message);
+                    document.getElementById('progressSection').style.display = 'none';
+                }
+            })
+            .catch(err => alert('Error: ' + err));
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', function() {
+            fetch('/api/stop_detection', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('statusMessage').textContent = data.message;
+                    this.disabled = true;
+                });
+        });
+
+        // ── Clear / Reset button ──
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            if (!confirm('Clear ALL violations and challans? This cannot be undone.')) return;
+            fetch('/api/clear_data', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.message);
+                    loadStats();
+                    loadViolations();
+                });
+        });
+
+        // ── When detection starts ──
+        function onDetectionStarted() {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('progressSection').style.display = 'block';
+
+            // Show live video feed
+            const liveFeed = document.getElementById('liveFeed');
+            const uploadOverlay = document.getElementById('uploadOverlay');
+            liveFeed.src = '/api/video_feed?' + Date.now();
+            liveFeed.style.display = 'block';
+            uploadOverlay.style.display = 'none';
+
+            // Poll detection status
+            statusInterval = setInterval(pollDetectionStatus, 1000);
+        }
+
+        // ── Stop line slider (live config) ──
+        document.getElementById('stopLineSlider').addEventListener('input', function() {
+            const value = parseInt(this.value, 10);
+            updateStopLineLabel(value);
+            clearTimeout(stopLineDebounce);
+            stopLineDebounce = setTimeout(() => pushStopLineConfig(value), 150);
+        });
+
+        // ── Poll detection status ──
+        function pollDetectionStatus() {
+            fetch('/api/detection_status')
+                .then(r => r.json())
+                .then(data => {
+                    // Update progress bar
+                    const bar = document.getElementById('progressBar');
+                    bar.style.width = data.progress + '%';
+                    bar.textContent = data.progress + '%';
+                    document.getElementById('statusMessage').textContent = data.message;
+                    document.getElementById('violationsCount').textContent = data.violations_found + ' violations found';
+
+                    // Update stats live
+                    loadStats();
+                    loadViolations();
+
+                    // Check if completed
+                    if (data.status === 'completed' || data.status === 'error') {
+                        clearInterval(statusInterval);
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('stopBtn').disabled = true;
+
+                        if (data.status === 'completed') {
+                            bar.style.width = '100%';
+                            bar.textContent = '100% — Complete!';
+                            bar.classList.remove('progress-bar-animated');
+                            bar.style.background = 'linear-gradient(90deg, #16a34a, #15803d)';
+                        } else {
+                            bar.style.background = '#dc2626';
+                            bar.textContent = 'Error';
+                        }
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // ── Drag & Drop support ──
+        const videoArea = document.getElementById('videoArea');
+        videoArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#667eea';
+            this.style.background = 'rgba(102,126,234,0.2)';
+        });
+        videoArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '';
+            this.style.background = '';
+        });
+        videoArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '';
+            this.style.background = '';
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('video/')) {
+                const fileInput = document.getElementById('videoFile');
+                const dt = new DataTransfer();
+                dt.items.add(files[0]);
+                fileInput.files = dt.files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+
+        // ── Initial load + auto-refresh ──
+        setInterval(() => { loadStats(); loadViolations(); }, 5000);
+        loadStats();
+        loadViolations();
+        loadStopLineConfig();
+
+        // Check if detection is already running (page refresh case)
+        fetch('/api/detection_status').then(r => r.json()).then(data => {
+            if (data.running || data.status === 'processing') {
+                onDetectionStarted();
+            }
+        }).catch(() => {});
+    </script>
+</body>
+</html>

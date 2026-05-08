@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrafficEye AI - Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body { background: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: rgba(255,255,255,0.95) !important; backdrop-filter: blur(10px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .chart-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .nav-link-custom { color: #333; font-weight: 500; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; text-decoration: none; }
+        .nav-link-custom:hover { background: #e5e7eb; color: #2563eb; }
+        .plate-badge { background: #111827; color: #fbbf24; font-weight: 700; padding: 3px 10px; border-radius: 6px; font-family: monospace; font-size: 13px; letter-spacing: 1px; }
+        .insight-card { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 15px; padding: 20px; }
+        .insight-card h6 { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/"><i class="bi bi-camera-video-fill text-primary"></i> TrafficEye AI</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="/" class="nav-link-custom"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <a href="/violations" class="nav-link-custom"><i class="bi bi-list-ul"></i> Violations</a>
+                <a href="/challans" class="nav-link-custom"><i class="bi bi-receipt"></i> e-Challans</a>
+                <a href="/analytics" class="nav-link-custom" style="background:#e5e7eb;"><i class="bi bi-graph-up"></i> Analytics</a>
+                <button class="btn btn-sm btn-outline-danger" onclick="removeAllData()">
+                    <i class="bi bi-trash3"></i> Remove All Data
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4 mb-4">
+        <h4 class="mb-3"><i class="bi bi-graph-up text-primary"></i> AI-Powered Analytics</h4>
+
+        <!-- Row 1: Hourly + Type Distribution -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="chart-card">
+                    <h6><i class="bi bi-clock-history"></i> Hourly Violation Distribution</h6>
+                    <p class="text-muted small">Identifies peak violation hours for optimized patrol deployment</p>
+                    <canvas id="hourlyChart" height="120"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <h6><i class="bi bi-pie-chart-fill"></i> Violation Type Distribution</h6>
+                    <canvas id="typeChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Severity + Insights -->
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="chart-card">
+                    <h6><i class="bi bi-bar-chart-fill"></i> Severity Distribution</h6>
+                    <p class="text-muted small">AI severity scoring (0-100) based on violation type, vehicle risk, time, speed</p>
+                    <canvas id="severityChart" height="140"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="insight-card">
+                    <h5><i class="bi bi-lightbulb-fill"></i> AI Insights</h5>
+                    <hr style="border-color:rgba(255,255,255,0.3);">
+                    <div id="insightsContainer">
+                        <div class="text-center py-4"><i class="bi bi-hourglass-split"></i> Analyzing data...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Detected Plates Table -->
+        <div class="row mt-0">
+            <div class="col-12">
+                <div class="chart-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0"><i class="bi bi-upc-scan"></i> Detected Number Plates (ANPR)</h6>
+                        <span class="badge bg-primary" id="plateCount">0 plates</span>
+                    </div>
+                    <div class="table-responsive" style="max-height:350px;overflow-y:auto;">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Plate Number</th><th>Violations</th><th>Total Fines</th><th>Last Seen</th></tr></thead>
+                            <tbody id="platesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let hourlyChart, typeChart, severityChart;
+        const colors = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#eab308', LOW:'#16a34a' };
+
+        function initCharts() {
+            hourlyChart = new Chart(document.getElementById('hourlyChart'), {
+                type: 'bar',
+                data: { labels: Array.from({length:24}, (_, i) => `${i}:00`), datasets: [{ label: 'Violations', data: Array(24).fill(0), backgroundColor: 'rgba(99, 102, 241, 0.6)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 5 }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            });
+
+            typeChart = new Chart(document.getElementById('typeChart'), {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#ef4444','#f59e0b','#6366f1','#10b981','#8b5cf6'] }] },
+                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { padding: 15 } } } }
+            });
+
+            severityChart = new Chart(document.getElementById('severityChart'), {
+                type: 'bar',
+                data: { labels: ['CRITICAL','HIGH','MEDIUM','LOW'], datasets: [{ label: 'Count', data: [0,0,0,0], backgroundColor: [colors.CRITICAL, colors.HIGH, colors.MEDIUM, colors.LOW], borderRadius: 8 }] },
+                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            });
+        }
+
+        function loadHourly() {
+            fetch('/api/analytics/hourly').then(r => r.json()).then(data => {
+                hourlyChart.data.datasets[0].data = data.map(d => d.count);
+                hourlyChart.update();
+            }).catch(() => {});
+        }
+
+        function loadTypeDistribution() {
+            fetch('/api/analytics/type_distribution').then(r => r.json()).then(data => {
+                typeChart.data.labels = data.map(d => d.type);
+                typeChart.data.datasets[0].data = data.map(d => d.count);
+                typeChart.update();
+            }).catch(() => {});
+        }
+
+        function loadSeverity() {
+            fetch('/api/analytics/severity').then(r => r.json()).then(data => {
+                const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+                data.forEach(d => { counts[d.level] = d.count; });
+                severityChart.data.datasets[0].data = [counts.CRITICAL, counts.HIGH, counts.MEDIUM, counts.LOW];
+                severityChart.update();
+            }).catch(() => {});
+        }
+
+        function loadPlates() {
+            fetch('/api/analytics/plates').then(r => r.json()).then(data => {
+                document.getElementById('plateCount').textContent = data.length + ' plates';
+                const tbody = document.getElementById('platesTable');
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No plates detected yet</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(p => `
+                    <tr>
+                        <td><span class="plate-badge">${p.plate}</span></td>
+                        <td><span class="badge bg-danger">${p.count} violations</span></td>
+                        <td class="fw-bold text-danger">₹${(p.total_fines || 0).toLocaleString('en-IN')}</td>
+                        <td class="small text-muted">${p.last_seen || '-'}</td>
+                    </tr>
+                `).join('');
+            }).catch(() => {
+                document.getElementById('platesTable').innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No data</td></tr>';
+            });
+        }
+
+        function generateInsights() {
+            fetch('/api/stats').then(r => r.json()).then(stats => {
+                const insights = [];
+                const total = stats.total || 0;
+                if (total === 0) {
+                    document.getElementById('insightsContainer').innerHTML = '<p><i class="bi bi-info-circle"></i> Start detection to see AI insights.</p>';
+                    return;
+                }
+                if (stats.no_helmet > stats.red_light) insights.push({ icon: 'shield-x', text: `Helmet violations (${stats.no_helmet}) exceed red light (${stats.red_light}). Recommend increasing helmet enforcement campaigns.` });
+                else insights.push({ icon: 'stoplights-fill', text: `Red light violations are the primary concern (${stats.red_light}). Consider optimizing signal timing.` });
+                if (stats.critical_violations > 0) insights.push({ icon: 'exclamation-triangle-fill', text: `${stats.critical_violations} CRITICAL severity violations detected. Immediate attention required for road safety.` });
+                if (stats.plates_detected > 0) insights.push({ icon: 'upc-scan', text: `ANPR successfully identified ${stats.plates_detected} number plates across violations. ${((stats.plates_detected / total) * 100).toFixed(0)}% detection rate.` });
+                const pendingFines = stats.total_fines || 0;
+                if (pendingFines > 0) insights.push({ icon: 'currency-rupee', text: `₹${pendingFines.toLocaleString('en-IN')} in total fines generated. Ensure timely collection for deterrence.` });
+                insights.push({ icon: 'graph-up-arrow', text: `Total ${total} violations today. System is actively monitoring and enforcing traffic rules.` });
+
+                document.getElementById('insightsContainer').innerHTML = insights.map(i => `
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-${i.icon} me-3" style="font-size:20px;opacity:0.9;flex-shrink:0;"></i>
+                        <p class="mb-0 small" style="line-height:1.5;">${i.text}</p>
+                    </div>
+                `).join('');
+            });
+        }
+
+        function removeAllData() {
+            if (!confirm('Remove ALL violations and challans? This cannot be undone.')) return;
+            fetch('/api/clear_data', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.message || 'All data removed');
+                    loadHourly();
+                    loadTypeDistribution();
+                    loadSeverity();
+                    loadPlates();
+                    generateInsights();
+                })
+                .catch(() => alert('Failed to remove data'));
+        }
+
+        initCharts();
+        loadHourly(); loadTypeDistribution(); loadSeverity(); loadPlates(); generateInsights();
+        setInterval(() => { loadHourly(); loadTypeDistribution(); loadSeverity(); loadPlates(); generateInsights(); }, 15000);
+    </script>
+</body>
+</html>
